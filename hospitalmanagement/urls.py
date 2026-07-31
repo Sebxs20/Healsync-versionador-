@@ -1,12 +1,15 @@
-
-
 from django.contrib import admin
-from django.urls import path
+from django.urls import include, path
 from hospital import views
 from django.contrib.auth.views import LoginView,LogoutView
 
+# Importar las funciones específicas para evitar errores
+from hospital.views import (
+    doctor_view_prescription_view, 
+    doctor_prescription_detail_json,
+    doctor_create_prescription_view
+)
 
-#-------------FOR ADMIN RELATED URLS
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('',views.home_view,name=''),
@@ -89,14 +92,17 @@ urlpatterns +=[
     
     # DOCTOR MEDICINE URL
     path('doctor-medicine/', views.doctor_medicine_view, name='doctor-medicine'),
+    
+    # DOCTOR PRESCRIPTION URLs - CORREGIDAS Y SIN DUPLICAR
+    path('doctor-prescription/', views.doctor_prescription_view, name='doctor-prescription'),
+    path('doctor-create-prescription/', doctor_create_prescription_view, name='doctor-create-prescription'),
+    path('doctor-view-prescription/', doctor_view_prescription_view, name='doctor-view-prescription'),
+    path('doctor-prescription-detail/<int:pk>/', doctor_prescription_detail_json, name='doctor-prescription-detail-json'),
 ]
-
-
 
 
 #---------FOR PATIENT RELATED URLS-------------------------------------
 urlpatterns +=[
-
     path('patient-dashboard', views.patient_dashboard_view,name='patient-dashboard'),
     path('patient-appointment', views.patient_appointment_view,name='patient-appointment'),
     path('patient-book-appointment', views.patient_book_appointment_view,name='patient-book-appointment'),
@@ -104,17 +110,19 @@ urlpatterns +=[
     path('patient-view-doctor', views.patient_view_doctor_view,name='patient-view-doctor'),
     path('searchdoctor', views.search_doctor_view,name='searchdoctor'),
     path('patient-discharge', views.patient_discharge_view,name='patient-discharge'),
-    path('doctor-prescription/', views.doctor_prescription_view, name='doctor-prescription'),
-    path('doctor-create-prescription/', views.doctor_create_prescription_view, name='doctor-create-prescription'),
-    path('doctor-view-prescription/', views.doctor_view_prescription_view, name='doctor-view-prescription'),
+    
+    # ADMIN PRESCRIPTION URLs
     path('admin-prescription/', views.admin_prescription_view, name='admin-prescription'),
     path('admin-view-prescription/', views.admin_view_prescription_view, name='admin-view-prescription'),
     path('admin-process-prescription/<int:pk>/', views.admin_process_prescription_view, name='admin-process-prescription'),
     path('admin-prescription-detail/<int:pk>/', views.admin_prescription_detail_view, name='admin-prescription-detail'),
-    path('admin-view-prescription/', views.admin_view_prescription_view, name='admin-view-prescription'),
-    path('admin-prescription-detail/<int:pk>/', views.admin_prescription_detail_view, name='admin-prescription-detail'),
-    # URLs para recetas del paciente
+    
+    # PATIENT PRESCRIPTION URLs
     path('patient-prescription/', views.patient_prescription_view, name='patient-prescription'),
     path('patient-prescription/<int:pk>/', views.patient_prescription_detail_view, name='patient-prescription-detail'),
     path('patient-payment/<int:pk>/', views.patient_payment_view, name='patient-payment'),
+    path('order/', views.order_view, name='order'),
+    
+    # CHATBOT URL
+    path('chatbot/', include('chatbot.urls')),
 ]

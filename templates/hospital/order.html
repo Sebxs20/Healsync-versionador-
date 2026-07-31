@@ -1,0 +1,202 @@
+{% extends 'hospital/homebase.html' %}
+{% load static %}
+
+{% block content %}
+
+<head>
+  <style media="screen">
+    /* Estilos originales de tu home */
+    .jumbotron {
+      margin-top: 0px;
+      margin-bottom: 0px;
+      background-image: url('{% static "images/bg.jpg" %}');
+      background-size: cover;
+      background-repeat: no-repeat;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .glow {
+      font-size: 50px;
+      color: white;
+      text-align: center;
+      -webkit-animation: glow 1s ease-in-out infinite alternate;
+      -moz-animation: glow 1s ease-in-out infinite alternate;
+      animation: glow 1s ease-in-out infinite alternate;
+    }
+
+    @-webkit-keyframes glow {
+      from {
+        text-shadow: 0 0 10px #eeeeee, 0 0 20px #000000, 0 0 30px #000000, 0 0 40px #000000, 0 0 50px #9554b3, 0 0 60px #9554b3, 0 0 70px #9554b3;
+      }
+      to {
+        text-shadow: 0 0 20px #eeeeee, 0 0 30px #ff4da6, 0 0 40px #ff4da6, 0 0 50px #ff4da6, 0 0 60px #ff4da6, 0 0 70px #ff4da6, 0 0 80px #ff4da6;
+      }
+    }
+
+    /* --- NUEVOS ESTILOS PARA LA TARJETA DE CONTACTO --- */
+    .contact-wrapper {
+      background: rgba(255, 255, 255, 0.95); /* Fondo semitransparente blanco */
+      padding: 40px;
+      border-radius: 20px;
+      box-shadow: 0 15px 50px rgba(0,0,0,0.3);
+      max-width: 800px;
+      width: 90%;
+      margin: 20px auto;
+      backdrop-filter: blur(5px);
+    }
+
+    .contact-wrapper h3 {
+      color: #1a237e;
+      margin-bottom: 10px;
+      font-size: 2rem;
+      text-shadow: none;
+    }
+
+    .contact-wrapper .subtitle {
+      color: #666;
+      font-size: 1.1rem;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+
+    .contact-info {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .contact-item {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 15px;
+      border-left: 6px solid #1a237e;
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+
+    .contact-item:hover {
+      transform: translateX(10px);
+      background: #e9ecef;
+      border-left-color: #00bcd4;
+    }
+
+    .contact-item .icon {
+      font-size: 2.5rem;
+      color: #1a237e;
+      width: 50px;
+      text-align: center;
+    }
+
+    .contact-item .details {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .contact-item .details .label {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      color: #888;
+      font-weight: 600;
+    }
+
+    .contact-item .details .value {
+      font-weight: 600;
+      color: #333;
+      font-size: 1.2rem;
+    }
+
+    .contact-item .details .value a {
+      text-decoration: none;
+      color: #1a237e;
+    }
+
+    .contact-item .details .value a:hover {
+      color: #00bcd4;
+    }
+
+    /* Botón volver al inicio */
+    .btn-volver {
+      margin-top: 30px;
+      background: #6c757d;
+      color: white;
+      padding: 10px 25px;
+      border-radius: 30px;
+      text-decoration: none;
+      transition: background 0.3s;
+    }
+
+    .btn-volver:hover {
+      background: #5a6268;
+      color: white;
+      text-decoration: none;
+    }
+
+    @media (max-width: 600px) {
+      .glow { font-size: 30px; }
+      .contact-wrapper { padding: 20px; }
+      .contact-item .icon { font-size: 1.8rem; }
+    }
+  </style>
+</head>
+
+<div class="jumbotron" style="margin-bottom: 0px; margin-top: 0px;">
+  <br>
+  <h5 class="display-3 glow">Te encantará la forma en la que te cuidamos</h5>
+  <h3 style="color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); margin-bottom: 20px;">
+    ¿Listo para digitalizar tu clínica? Pide tu registro aquí.
+  </h3>
+
+  <!-- TARJETA DE CONTACTO -->
+  <div class="contact-wrapper">
+    <h3 style="text-align: center;">📞 Contacta con Recepción</h3>
+    <p class="subtitle">Nuestro equipo te atenderá para crear tu cuenta y configurar tu sistema.</p>
+    
+    <div class="contact-info">
+      <!-- Opción 1: WhatsApp -->
+      <div class="contact-item">
+        <div class="icon">💬</div>
+        <div class="details">
+          <span class="label">Escríbenos por</span>
+          <span class="value"><a href="#">WhatsApp (Click aquí)</a></span>
+        </div>
+      </div>
+
+      <!-- Opción 2: Teléfono -->
+      <div class="contact-item">
+        <div class="icon">📞</div>
+        <div class="details">
+          <span class="label">Llama a nuestro</span>
+          <span class="value"><a href="tel:+521234567890">+52 123 456 7890</a></span>
+        </div>
+      </div>
+
+      <!-- Opción 3: Correo -->
+      <div class="contact-item">
+        <div class="icon">✉️</div>
+        <div class="details">
+          <span class="label">Envía un correo a</span>
+          <span class="value"><a href="mailto:registro@healthsync.com">registro@healthsync.com</a></span>
+        </div>
+      </div>
+    </div>
+
+    <p style="margin-top: 25px; font-size: 0.9rem; color: #999; text-align: center;">
+      *Te responderemos en menos de 2 horas hábiles.
+    </p>
+  </div>
+
+  <!-- Botón opcional para volver al inicio -->
+  <br>
+  <a href="/" class="btn-volver">← Volver al inicio</a>
+  
+  <br><br><br><br><br>
+</div>
+
+{% endblock content %}

@@ -798,22 +798,52 @@ def delete_appointment_view(request,pk):
 #---------------------------------------------------------------------------------
 #------------------------ PATIENT RELATED VIEWS START ------------------------------
 #---------------------------------------------------------------------------------
+
+# ------------------- ESTA ES LA ÚNICA FUNCIÓN QUE HE CAMBIADO -------------------
 @login_required(login_url='patientlogin')
 @user_passes_test(is_patient)
 def patient_dashboard_view(request):
-    patient=models.Patient.objects.get(user_id=request.user.id)
-    doctor=models.Doctor.objects.get(user_id=patient.assignedDoctorId)
-    mydict={
-    'patient':patient,
-    'doctorName':doctor.get_name,
-    'doctorMobile':doctor.mobile,
-    'doctorAddress':doctor.address,
-    'symptoms':patient.symptoms,
-    'doctorDepartment':doctor.department,
-    'admitDate':patient.admitDate,
-    }
-    return render(request,'hospital/patient_dashboard.html',context=mydict)
+    patient = models.Patient.objects.get(user_id=request.user.id)
+    
+    # --- CORRECCIÓN PARA BUSCAR AL DOCTOR POR USER_ID ---
+    doctor_name = "No asignado"
+    doctor_mobile = "---"
+    doctor_address = "---"
+    doctor_department = "---"
+    
+    try:
+        # Verificamos que exista un ID asignado
+        if patient.assignedDoctorId:
+            # CORRECCIÓN AQUÍ: Usamos 'user_id' para buscar en la tabla Doctor
+            doctor = models.Doctor.objects.get(user_id=patient.assignedDoctorId)
+            doctor_name = doctor.get_name
+            doctor_mobile = doctor.mobile
+            doctor_address = doctor.address
+            doctor_department = doctor.department
+        else:
+            doctor_name = "Sin doctor asignado"
+            
+    except models.Doctor.DoesNotExist:
+        # Si el ID en la base de datos no corresponde a ningún doctor real
+        doctor_name = "Doctor no encontrado (ID incorrecto)"
+        doctor_mobile = "Contacta a recepción"
+        doctor_address = "---"
+        doctor_department = "---"
+    except Exception:
+        # Cualquier otro error inesperado
+        doctor_name = "Error al cargar datos"
+    # ----------------------------------------------------------------
 
+    mydict = {
+        'patient': patient,
+        'doctorName': doctor_name,
+        'doctorMobile': doctor_mobile,
+        'doctorAddress': doctor_address,
+        'symptoms': patient.symptoms,
+        'doctorDepartment': doctor_department,
+        'admitDate': patient.admitDate,
+    }
+    return render(request, 'hospital/patient_dashboard.html', context=mydict)# -------------------------------------------------------------------------------
 
 
 @login_required(login_url='patientlogin')
@@ -1250,6 +1280,9 @@ def doctor_create_prescription_view(request):
         'appointment_id': appointment_id
     })
 
+from django.db.models import Q
+from datetime import datetime, timedelta
+
 @login_required(login_url='doctorlogin')
 @user_passes_test(is_doctor)
 def doctor_view_prescription_view(request):
@@ -1260,9 +1293,15 @@ def doctor_view_prescription_view(request):
     
     # Contadores para estadísticas
     total_prescriptions = prescriptions.count()
-    pending_prescriptions = prescriptions.filter(status='pendiente').count()
-    completed_prescriptions = prescriptions.filter(status='completada').count()
-    cancelled_prescriptions = prescriptions.filter(status='cancelada').count()
+    pending_count = prescriptions.filter(status='pendiente').count()
+    liquidated_count = prescriptions.filter(status='liquidado').count()  # Si usas este estado
+    completed_count = prescriptions.filter(status='completada').count()
+    cancelled_count = prescriptions.filter(status='cancelada').count()
+    
+    # Recetas de este mes
+    today = datetime.now().date()
+    first_day_of_month = today.replace(day=1)
+    monthly_count = prescriptions.filter(created_at__date__gte=first_day_of_month).count()
     
     # Aplicar filtros si existen
     status_filter = request.GET.get('status', 'all')
@@ -1273,13 +1312,75 @@ def doctor_view_prescription_view(request):
         'prescriptions': prescriptions,
         'doctor': doctor,
         'total_prescriptions': total_prescriptions,
-        'pending_prescriptions': pending_prescriptions,
-        'completed_prescriptions': completed_prescriptions,
-        'cancelled_prescriptions': cancelled_prescriptions,
+        'pending_count': pending_count,
+        'liquidated_count': liquidated_count,
+        'completed_count': completed_count,
+        'cancelled_count': cancelled_count,
+        'monthly_count': monthly_count,
         'current_filter': status_filter
     })
     
     
+from django.http import JsonResponse
+
+@login_required(login_url='doctorlogin')
+@user_passes_test(is_doctor)
+def doctor_prescription_detail_json(request, pk):
+    """Vista AJAX para obtener detalles de receta en JSON"""
+    try:
+        doctor = models.Doctor.objects.get(user_id=request.user.id)
+        prescription = models.Prescription.objects.get(id=pk, doctor=doctor)
+        
+        # --- CALCULAR EL TOTAL REAL DESDE CERO ---
+        # Esto soluciona que el total se muestre en 0 aunque los medicamentos tengan precio
+        total_real = 0
+        medicines_list = []
+        
+        for pm in prescription.medicines.all():
+            # Calcular subtotal (si el precio es None, lo tratamos como 0)
+            price = float(pm.medicine.price) if pm.medicine.price else 0.0
+            subtotal = price * pm.quantity
+            total_real += subtotal
+            
+            medicines_list.append({
+                'name': pm.medicine.name,
+                'quantity': pm.quantity,
+                'dosage': pm.dosage,
+                'duration': pm.duration,
+                'subtotal': subtotal
+            })
+        
+        # Construir respuesta JSON
+        data = {
+            'success': True,
+            'prescription': {
+                'id': prescription.id,
+                'patient_name': prescription.patient.get_name,  # Sin paréntesis
+                'patient_mobile': prescription.patient.mobile,
+                'symptoms': prescription.symptoms,
+                'diagnosis': prescription.diagnosis,
+                'instructions': prescription.instructions,
+                'status': prescription.status,
+                'status_display': dict(models.Prescription.STATUS_CHOICES).get(prescription.status, prescription.status),
+                'created_at': prescription.created_at.strftime('%d/%m/%Y %H:%M'),
+                'total_amount': total_real,  # Usamos el total calculado en tiempo real
+                'medicines': medicines_list
+            }
+        }
+        
+        return JsonResponse(data)
+        
+    except models.Prescription.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'message': 'Receta no encontrada'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': str(e)
+        })
+        
 @login_required(login_url='adminlogin')
 @user_passes_test(is_admin)
 def admin_prescription_view(request):
@@ -1379,15 +1480,12 @@ def patient_prescription_view(request):
         else:
             print(f"DEBUG: Receta #{prescription.id} ya tiene total correcto: ${old_total}")
     
-    # Re-cargar las recetas con los totales actualizados
     prescriptions = models.Prescription.objects.filter(patient=patient).order_by('-created_at')
     
-    # Calcular totales
     total_prescriptions = prescriptions.count()
     pending_payment = prescriptions.filter(payment_status='pendiente').count()
     paid_prescriptions = prescriptions.filter(payment_status='pagado').count()
     
-    # Calcular total pendiente de pago
     total_pendiente = 0
     for prescription in prescriptions.filter(payment_status='pendiente'):
         total_pendiente += float(prescription.total_amount)
@@ -1436,3 +1534,6 @@ def patient_payment_view(request, pk):
         'patient': patient,
         'prescription': prescription
     })
+    
+def order_view(request):
+    return render(request, 'hospital/order.html') 

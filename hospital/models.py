@@ -16,7 +16,7 @@ class Doctor(models.Model):
     address = models.CharField(max_length=40)
     mobile = models.CharField(max_length=20,null=True)
     department= models.CharField(max_length=50,choices=departments,default='Cardiologist')
-    status=models.BooleanField(default=False)
+    status=models.BooleanField(default=True)
     @property
     def get_name(self):
         return self.user.first_name+" "+self.user.last_name
@@ -205,14 +205,11 @@ class Prescription(models.Model):
         return total
     
     def save(self, *args, **kwargs):
-        # Calcular el total automáticamente al guardar, incluso para nuevos registros
         is_new = self.pk is None
-        super().save(*args, **kwargs)  # Guardar primero para tener ID
+        super().save(*args, **kwargs)
         
-        # Si ya tiene medicamentos, calcular el total
         if self.medicines.exists():
             self.total_amount = self.calculate_total()
-            # Llamar super().save() otra vez para guardar el total
             super().save(update_fields=['total_amount'])
     
     class Meta:
@@ -232,17 +229,13 @@ class PrescriptionMedicine(models.Model):
         return float(self.medicine.price) * self.quantity
     
     def save(self, *args, **kwargs):
-        # Reducir el stock solo si es un nuevo registro
         if self.pk is None:
             if self.medicine.stock_quantity >= self.quantity:
-                # Guardar el stock anterior
                 previous_stock = self.medicine.stock_quantity
                 
-                # Reducir el stock
                 self.medicine.stock_quantity -= self.quantity
                 self.medicine.save()
                 
-                # Registrar el movimiento de salida
                 MedicineMovement.objects.create(
                     medicine=self.medicine,
                     movement_type='salida',
@@ -253,7 +246,6 @@ class PrescriptionMedicine(models.Model):
                     performed_by=self.prescription.doctor.user
                 )
                 
-                # Actualizar el total de la receta
                 self.prescription.save()
             else:
                 raise ValueError(f"Stock insuficiente para {self.medicine.name}. Stock disponible: {self.medicine.stock_quantity}")
@@ -261,12 +253,10 @@ class PrescriptionMedicine(models.Model):
         super().save(*args, **kwargs)
     
     def delete(self, *args, **kwargs):
-        # Restaurar el stock al eliminar
         previous_stock = self.medicine.stock_quantity
         self.medicine.stock_quantity += self.quantity
         self.medicine.save()
         
-        # Registrar movimiento de ajuste por eliminación
         MedicineMovement.objects.create(
             medicine=self.medicine,
             movement_type='ajuste',
@@ -277,7 +267,6 @@ class PrescriptionMedicine(models.Model):
             performed_by=self.prescription.doctor.user
         )
         
-        # Actualizar el total de la receta
         self.prescription.save()
         
         super().delete(*args, **kwargs)
@@ -300,7 +289,6 @@ def update_appointment_prescription(sender, instance, created, **kwargs):
     """
     if created:
         try:
-            # Buscar la cita pendiente relacionada con este paciente y doctor
             appointment = models.Appointment.objects.filter(
                 patientId=instance.patient.id,
                 doctorId=instance.doctor.id,
@@ -340,6 +328,5 @@ def update_all_prescription_totals():
             print(f"  TOTAL CORRECTO: ${prescription.total_amount}")
         print("---")
         
-        # Ejecutar esto una vez (luego comentar o eliminar)
 if __name__ == "__main__":
     update_all_prescription_totals()

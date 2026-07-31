@@ -59,7 +59,7 @@
                             <div class="card text-white bg-primary">
                                 <div class="card-body text-center">
                                     <h6>Total Recetas</h6>
-                                    <h3>{{ prescriptions.count }}</h3>
+                                    <h3>{{ total_prescriptions }}</h3>
                                 </div>
                             </div>
                         </div>
@@ -74,8 +74,8 @@
                         <div class="col-md-3">
                             <div class="card text-white bg-success">
                                 <div class="card-body text-center">
-                                    <h6>Liquidadas</h6>
-                                    <h3>{{ liquidated_count|default:0 }}</h3>
+                                    <h6>Completadas</h6>
+                                    <h3>{{ completed_count|default:0 }}</h3>
                                 </div>
                             </div>
                         </div>
@@ -303,72 +303,144 @@
 </style>
 
 <script>
-    // Función para mostrar detalles completos de la receta
+    // Función para mostrar detalles completos de la receta desde la base de datos
     function showPrescriptionDetails(prescriptionId) {
-        // En una implementación real, aquí harías una petición AJAX para obtener los detalles
-        const details = `
-        <div class="prescription-details">
-            <div class="row">
-                <div class="col-md-6">
-                    <h6><i class="fa fa-user"></i> Información del Paciente</h6>
-                    <p><strong>Nombre:</strong> Lupita Arenas</p>
-                    <p><strong>ID:</strong> 517672 NA</p>
-                    <p><strong>Teléfono:</strong> 555-0123</p>
-                </div>
-                <div class="col-md-6">
-                    <h6><i class="fa fa-info-circle"></i> Información de la Receta</h6>
-                    <p><strong>ID Receta:</strong> #${prescriptionId}</p>
-                    <p><strong>Fecha:</strong> 23/11/2025</p>
-                    <p><strong>Estado:</strong> <span class="badge badge-success">LIQUIDADO</span></p>
-                </div>
+        // Mostrar loading
+        document.getElementById('prescriptionDetails').innerHTML = `
+            <div class="text-center py-4">
+                <i class="fa fa-spinner fa-spin fa-3x"></i>
+                <p class="mt-2">Cargando detalles...</p>
             </div>
-            <hr>
-            <h6><i class="fa fa-stethoscope"></i> Diagnóstico</h6>
-            <p>Diagnóstico médico completo del paciente según la evaluación realizada.</p>
-            
-            <h6><i class="fa fa-medkit"></i> Medicamentos Recetados</h6>
-            <div class="table-responsive">
-                <table class="table table-sm table-bordered">
-                    <thead class="thead-light">
-                        <tr>
-                            <th>Medicamento</th>
-                            <th>Cantidad</th>
-                            <th>Dosis</th>
-                            <th>Duración</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>Paracetamol</td>
-                            <td>1</td>
-                            <td>1 tableta cada 8 horas</td>
-                            <td>5 días</td>
-                        </tr>
-                        <tr>
-                            <td>Ibuprofeno</td>
-                            <td>1</td>
-                            <td>1 tableta cada 12 horas</td>
-                            <td>3 días</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            
-            <div class="alert alert-success mt-3">
-                <i class="fa fa-check-circle"></i> 
-                <strong>Receta Liquidada:</strong> El paciente ha realizado el pago correspondiente.
-            </div>
-        </div>
-    `;
-
-        document.getElementById('prescriptionDetails').innerHTML = details;
+        `;
         $('#prescriptionModal').modal('show');
+
+        // Hacer petición AJAX para obtener los detalles reales
+        fetch(`/doctor-prescription-detail/${prescriptionId}/`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Error del servidor: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    const prescription = data.prescription;
+                    let medicinesHtml = '';
+                    // Verificamos que medicines exista antes de iterar
+                    if (prescription.medicines && Array.isArray(prescription.medicines)) {
+                        prescription.medicines.forEach(med => {
+                            medicinesHtml += `
+                            <tr>
+                                <td><strong>${med.name}</strong></td>
+                                <td>${med.quantity}</td>
+                                <td>${med.dosage || 'N/A'}</td>
+                                <td>${med.duration || 'N/A'}</td>
+                                <td>$${med.subtotal}</td>
+                            </tr>
+                        `;
+                        });
+                    }
+
+                    // (IMPORTANTE: Asegúrate de que en tu vista de Django devuelvas 'patient_name', no 'patient.get_name')
+                    const details = `
+                        <div class="prescription-details">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6><i class="fa fa-user"></i> Información del Paciente</h6>
+                                    <p><strong>Nombre:</strong> ${prescription.patient_name || 'No disponible'}</p>
+                                    <p><strong>Teléfono:</strong> ${prescription.patient_mobile || 'N/A'}</p>
+                                    <p><strong>Síntomas:</strong> ${prescription.symptoms || 'No especificados'}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6><i class="fa fa-info-circle"></i> Información de la Receta</h6>
+                                    <p><strong>ID Receta:</strong> #${prescription.id}</p>
+                                    <p><strong>Fecha:</strong> ${prescription.created_at}</p>
+                                    <p><strong>Estado:</strong> 
+                                        <span class="badge badge-${prescription.status === 'pendiente' ? 'warning' : prescription.status === 'completada' ? 'success' : 'danger'}">
+                                            ${prescription.status_display}
+                                        </span>
+                                    </p>
+                                    <p><strong>Total:</strong> $${prescription.total_amount}</p>
+                                </div>
+                            </div>
+                            <hr>
+                            <h6><i class="fa fa-stethoscope"></i> Diagnóstico</h6>
+                            <p>${prescription.diagnosis || 'No especificado'}</p>
+                            
+                            <h6><i class="fa fa-medkit"></i> Medicamentos Recetados</h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-bordered">
+                                    <thead class="thead-light">
+                                        <tr>
+                                            <th>Medicamento</th>
+                                            <th>Cantidad</th>
+                                            <th>Dosis</th>
+                                            <th>Duración</th>
+                                            <th>Subtotal</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${medicinesHtml}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr class="font-weight-bold">
+                                            <td colspan="4" class="text-right">TOTAL:</td>
+                                            <td>$${prescription.total_amount}</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                            
+                            ${prescription.instructions ? `
+                            <div class="alert alert-info mt-3">
+                                <i class="fa fa-info-circle"></i> 
+                                <strong>Instrucciones:</strong> ${prescription.instructions}
+                            </div>
+                            ` : ''}
+                            
+                            ${prescription.status === 'completada' ? `
+                            <div class="alert alert-success mt-3">
+                                <i class="fa fa-check-circle"></i> 
+                                <strong>Receta Completada:</strong> La receta ha sido procesada exitosamente.
+                            </div>
+                            ` : ''}
+                            
+                            ${prescription.status === 'cancelada' ? `
+                            <div class="alert alert-danger mt-3">
+                                <i class="fa fa-times-circle"></i> 
+                                <strong>Receta Cancelada:</strong> Esta receta fue cancelada.
+                            </div>
+                            ` : ''}
+                        </div>
+                    `;
+                    document.getElementById('prescriptionDetails').innerHTML = details;
+                } else {
+                    document.getElementById('prescriptionDetails').innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fa fa-exclamation-circle"></i> 
+                            Error del servidor: ${data.message || 'No se pudo cargar la receta'}
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                // CORRECCIÓN: Aquí usamos error.message, NO error()
+                document.getElementById('prescriptionDetails').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fa fa-exclamation-circle"></i> 
+                        Error al cargar los detalles: ${error.message}
+                        <br><small>Revisa que la vista de Django esté devolviendo JSON y no un HTML de error.</small>
+                    </div>
+                `;
+                console.error('Error en fetch:', error);
+            });
     }
 
-    // Función para editar receta (solo pendientes no pagadas)
+    // ... (el resto de tus funciones como editPrescription, printPrescription, showFullText, etc., permanecen igual) ...
+
+    // Función para editar receta
     function editPrescription(prescriptionId) {
         if (confirm('¿Desea editar esta receta médica?')) {
-            // Redirigir a la página de edición
             window.location.href = `/doctor-edit-prescription/${prescriptionId}/`;
         }
     }
@@ -376,9 +448,7 @@
     // Función para imprimir receta
     function printPrescription(prescriptionId) {
         if (confirm('¿Generar PDF de esta receta médica?')) {
-            // En una implementación real, aquí generarías el PDF
             alert(`📄 Generando PDF para receta #${prescriptionId}`);
-            // window.location.href = `/doctor-print-prescription/${prescriptionId}/`;
         }
     }
 
